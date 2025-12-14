@@ -1,65 +1,121 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from "react";
+import { DailyPrompt } from "@/components/DailyPrompt";
+import { JournalEditor } from "@/components/JournalEditor";
+import { MemoriesView } from "@/components/MemoriesView";
+import { StatsDashboard } from "@/components/StatsDashboard";
+import { SettingsView } from "@/components/SettingsView";
+import { PenLine, History, Settings } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useLanguage } from "@/context/LanguageContext";
+
+type View = 'write' | 'memories' | 'settings';
 
 export default function Home() {
+  const [currentView, setCurrentView] = useState<View>('write');
+  const { t } = useLanguage();
+  
+  // Quick stats calculation (mock/local)
+  const [stats, setStats] = useState({ totalEntries: 0, currentStreak: 0, totalWords: 0 });
+
+  useEffect(() => {
+     // Simple stats from local storage for now
+     let entriesCount = 0;
+     let wordsCount = 0;
+     // Streak logic would be more complex, just mock for now or calculate simply
+     
+     if (typeof window !== 'undefined') {
+         for (let i = 0; i < localStorage.length; i++) {
+             const key = localStorage.key(i);
+             if (key?.startsWith('journal_entry_')) {
+                 entriesCount++;
+                 const content = localStorage.getItem(key) || '';
+                 wordsCount += content.split(/\s+/).length;
+             }
+         }
+         setStats({
+             totalEntries: entriesCount,
+             currentStreak: entriesCount > 0 ? 1 : 0, // Naive streak
+             totalWords: wordsCount
+         });
+     }
+  }, [currentView]); // Re-calc when view changes
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen flex flex-col items-center p-4 md:p-8 overflow-hidden relative">
+        {/* Ambient background glow */}
+        <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-900/30 rounded-full blur-[120px] pointer-events-none mix-blend-screen animate-pulse duration-[10s]"></div>
+        <div className="fixed bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-orange-900/20 rounded-full blur-[120px] pointer-events-none mix-blend-screen animate-pulse duration-[15s]"></div>
+
+        <header className="relative z-10 w-full max-w-5xl flex justify-between items-center mb-6 md:mb-12 px-2 md:px-0">
+            <h1 className="text-xl font-bold tracking-tighter text-white/80">
+                {t.app_title_main}<span className="text-white/40 font-light">{t.app_title_sub}</span>
+            </h1>
+            
+            <nav className="flex items-center gap-1 md:gap-2 bg-black/20 backdrop-blur-xl p-1.5 rounded-full border border-white/5 shadow-xl">
+                <button 
+                  onClick={() => setCurrentView('write')}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${currentView === 'write' ? 'bg-white/10 text-white shadow-inner border border-white/10' : 'text-white/40 hover:text-white/70 hover:bg-white/5'}`}
+                >
+                    <span className="flex items-center gap-2"><PenLine className="w-4 h-4" /> <span className="hidden md:inline">{t.nav_today}</span></span>
+                </button>
+                <button 
+                  onClick={() => setCurrentView('memories')}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${currentView === 'memories' ? 'bg-white/10 text-white shadow-inner border border-white/10' : 'text-white/40 hover:text-white/70 hover:bg-white/5'}`}
+                >
+                     <span className="flex items-center gap-2"><History className="w-4 h-4" /> <span className="hidden md:inline">{t.nav_memories}</span></span>
+                </button>
+                <button 
+                  onClick={() => setCurrentView('settings')}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${currentView === 'settings' ? 'bg-white/10 text-white shadow-inner border border-white/10' : 'text-white/40 hover:text-white/70 hover:bg-white/5'}`}
+                >
+                     <span className="flex items-center gap-2"><Settings className="w-4 h-4" /> <span className="hidden md:inline">{t.nav_settings}</span></span>
+                </button>
+            </nav>
+        </header>
+
+        <div className="w-full relative z-10">
+             <AnimatePresence mode="wait">
+                {currentView === 'write' ? (
+                    <motion.div
+                        key="write-view"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        className="flex flex-col items-center gap-8"
+                    >
+                        <DailyPrompt />
+                        <JournalEditor />
+                    </motion.div>
+                ) : currentView === 'memories' ? (
+                     <motion.div
+                        key="memories-view"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 20 }}
+                        className="flex flex-col items-center gap-8"
+                    >
+                        <StatsDashboard {...stats} />
+                        <MemoriesView />
+                    </motion.div>
+                ) : (
+                    <motion.div
+                        key="settings-view"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                         className="flex flex-col items-center gap-8 w-full"
+                    >
+                        <SettingsView />
+                    </motion.div>
+                )}
+             </AnimatePresence>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+        
+        <footer className="mt-auto relative z-10 text-center w-full text-white/20 text-xs py-4">
+            <p>{t.footer_text}</p>
+        </footer>
+    </main>
   );
 }

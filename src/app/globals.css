@@ -1,26 +1,23 @@
 @import "tailwindcss";
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@plugin "daisyui" {
+  themes: dark --default;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+@theme {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  /* Journal Theme Colors - can be tweaked */
+  --journal-bg: #0f0c29;
+  --journal-gradient-from: #0f0c29;
+  --journal-gradient-via: #302b63;
+  --journal-gradient-to: #24243e;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: linear-gradient(to right, var(--journal-gradient-from), var(--journal-gradient-via), var(--journal-gradient-to));
+  min-height: 100vh;
+  color: #fff;
 }
