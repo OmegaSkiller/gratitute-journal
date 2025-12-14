@@ -23,17 +23,17 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: "Daily Journal",
+  title: "Gratitude Journal",
   description: "A private, daily reflection space.",
   manifest: "/manifest.json",
   icons: {
-    icon: "/icon.png",
-    apple: "/icon.png",
+    icon: "/android-chrome-512x512.png",
+    apple: "/android-chrome-512x512.png",
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Daily Journal",
+    title: "Gratitude Journal",
   },
 };
 

@@ -1,121 +1,70 @@
 'use client';
 
-import { useState, useEffect } from "react";
-import { DailyPrompt } from "@/components/DailyPrompt";
-import { JournalEditor } from "@/components/JournalEditor";
-import { MemoriesView } from "@/components/MemoriesView";
-import { StatsDashboard } from "@/components/StatsDashboard";
+import { useState } from "react";
 import { SettingsView } from "@/components/SettingsView";
-import { PenLine, History, Settings } from "lucide-react";
+import { TimelineView } from "@/components/TimelineView";
+import { Settings, X, Trophy } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLanguage } from "@/context/LanguageContext";
 
-type View = 'write' | 'memories' | 'settings';
-
 export default function Home() {
-  const [currentView, setCurrentView] = useState<View>('write');
+  const [showSettings, setShowSettings] = useState(false);
+  const [streak, setStreak] = useState(0);
   const { t } = useLanguage();
-  
-  // Quick stats calculation (mock/local)
-  const [stats, setStats] = useState({ totalEntries: 0, currentStreak: 0, totalWords: 0 });
-
-  useEffect(() => {
-     // Simple stats from local storage for now
-     let entriesCount = 0;
-     let wordsCount = 0;
-     // Streak logic would be more complex, just mock for now or calculate simply
-     
-     if (typeof window !== 'undefined') {
-         for (let i = 0; i < localStorage.length; i++) {
-             const key = localStorage.key(i);
-             if (key?.startsWith('journal_entry_')) {
-                 entriesCount++;
-                 const content = localStorage.getItem(key) || '';
-                 wordsCount += content.split(/\s+/).length;
-             }
-         }
-         setStats({
-             totalEntries: entriesCount,
-             currentStreak: entriesCount > 0 ? 1 : 0, // Naive streak
-             totalWords: wordsCount
-         });
-     }
-  }, [currentView]); // Re-calc when view changes
 
   return (
-    <main className="min-h-screen flex flex-col items-center p-4 md:p-8 overflow-hidden relative">
-        {/* Ambient background glow */}
-        <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-900/30 rounded-full blur-[120px] pointer-events-none mix-blend-screen animate-pulse duration-[10s]"></div>
-        <div className="fixed bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-orange-900/20 rounded-full blur-[120px] pointer-events-none mix-blend-screen animate-pulse duration-[15s]"></div>
+    <main className="min-h-screen bg-[#183D12] flex flex-col relative overflow-hidden transition-colors duration-500">
+        
+        {/* Background Gradients (Subtle) */}
+        <div className="fixed top-0 left-0 w-full h-32 bg-gradient-to-b from-black/20 to-transparent pointer-events-none z-10" />
 
-        <header className="relative z-10 w-full max-w-5xl flex justify-between items-center mb-6 md:mb-12 px-2 md:px-0">
-            <h1 className="text-xl font-bold tracking-tighter text-white/80">
-                {t.app_title_main}<span className="text-white/40 font-light">{t.app_title_sub}</span>
+        {/* Header */}
+        <header className="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-6 py-6 md:px-12 backdrop-blur-md bg-[#183D12]/50">
+            <h1 className="text-xl md:text-2xl font-serif font-bold tracking-tight text-white/90">
+                {t.app_title_main} <span className="font-light italic opacity-60">{t.app_title_sub}</span>
             </h1>
             
-            <nav className="flex items-center gap-1 md:gap-2 bg-black/20 backdrop-blur-xl p-1.5 rounded-full border border-white/5 shadow-xl">
+            <div className="flex items-center gap-4">
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/5 bg-black/20 ${streak > 0 ? 'text-yellow-400' : 'text-red-400'}`}>
+                    <Trophy className="w-4 h-4" />
+                    <span className="font-bold text-sm tracking-wide">{streak}</span>
+                </div>
+                
                 <button 
-                  onClick={() => setCurrentView('write')}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${currentView === 'write' ? 'bg-white/10 text-white shadow-inner border border-white/10' : 'text-white/40 hover:text-white/70 hover:bg-white/5'}`}
+                    onClick={() => setShowSettings(!showSettings)}
+                    className="p-2 rounded-full hover:bg-white/10 transition-colors text-white/80"
                 >
-                    <span className="flex items-center gap-2"><PenLine className="w-4 h-4" /> <span className="hidden md:inline">{t.nav_today}</span></span>
+                    {showSettings ? <X className="w-6 h-6" /> : <Settings className="w-6 h-6" />}
                 </button>
-                <button 
-                  onClick={() => setCurrentView('memories')}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${currentView === 'memories' ? 'bg-white/10 text-white shadow-inner border border-white/10' : 'text-white/40 hover:text-white/70 hover:bg-white/5'}`}
-                >
-                     <span className="flex items-center gap-2"><History className="w-4 h-4" /> <span className="hidden md:inline">{t.nav_memories}</span></span>
-                </button>
-                <button 
-                  onClick={() => setCurrentView('settings')}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${currentView === 'settings' ? 'bg-white/10 text-white shadow-inner border border-white/10' : 'text-white/40 hover:text-white/70 hover:bg-white/5'}`}
-                >
-                     <span className="flex items-center gap-2"><Settings className="w-4 h-4" /> <span className="hidden md:inline">{t.nav_settings}</span></span>
-                </button>
-            </nav>
+            </div>
         </header>
 
-        <div className="w-full relative z-10">
-             <AnimatePresence mode="wait">
-                {currentView === 'write' ? (
-                    <motion.div
-                        key="write-view"
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        className="flex flex-col items-center gap-8"
-                    >
-                        <DailyPrompt />
-                        <JournalEditor />
-                    </motion.div>
-                ) : currentView === 'memories' ? (
-                     <motion.div
-                        key="memories-view"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 20 }}
-                        className="flex flex-col items-center gap-8"
-                    >
-                        <StatsDashboard {...stats} />
-                        <MemoriesView />
-                    </motion.div>
-                ) : (
-                    <motion.div
-                        key="settings-view"
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                         className="flex flex-col items-center gap-8 w-full"
+        {/* Content */}
+        <div className="flex-1 w-full pt-20">
+            <AnimatePresence mode="wait">
+                {showSettings ? (
+                    <motion.div 
+                        key="settings"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="pt-10 px-4"
                     >
                         <SettingsView />
                     </motion.div>
+                ) : (
+                    <motion.div 
+                        key="timeline"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                    >
+                        <TimelineView onStreakChange={setStreak} />
+                    </motion.div>
                 )}
-             </AnimatePresence>
+            </AnimatePresence>
         </div>
         
-        <footer className="mt-auto relative z-10 text-center w-full text-white/20 text-xs py-4">
-            <p>{t.footer_text}</p>
-        </footer>
     </main>
   );
 }

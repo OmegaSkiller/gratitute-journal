@@ -6,27 +6,11 @@ import { motion } from "framer-motion";
 import { useLanguage } from "@/context/LanguageContext";
 
 export function SettingsView() {
-  const [apiKey, setApiKey] = useState("");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [savedMsg, setSavedMsg] = useState(false);
   const { t, locale, setLocale } = useLanguage();
-
-  useEffect(() => {
-    const savedKey = localStorage.getItem("openai_api_key");
-    if (savedKey) setApiKey(savedKey);
-  }, []);
-
-  const saveSettings = () => {
-    localStorage.setItem("openai_api_key", apiKey);
-    setSavedMsg(true);
-    setTimeout(() => setSavedMsg(false), 2000);
-  };
 
   const clearData = () => {
     localStorage.clear();
-    // Preserve language and API key potentially? Or full nuke?
-    // User requested "Clear All Local Data", so clear everything.
-    // Ideally we might want to refresh the page.
     window.location.reload();
   };
 
@@ -62,31 +46,6 @@ export function SettingsView() {
         </div>
       </div>
 
-      <div className="mb-8">
-        <label className="block text-sm font-medium text-white/60 mb-2">
-          {t.settings_openai_label}
-        </label>
-        <p className="text-xs text-white/30 mb-4">
-          {t.settings_openai_hint}
-        </p>
-        <div className="flex gap-2">
-          <input
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder="sk-..."
-            className="flex-1 bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/20 focus:outline-none focus:border-white/30 transition-colors"
-          />
-          <button
-            onClick={saveSettings}
-            className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-medium transition-colors flex items-center gap-2"
-          >
-            <Save className="w-4 h-4" />
-            {savedMsg ? t.settings_saved : "Save"}
-          </button>
-        </div>
-      </div>
-
       <div className="pt-8 border-t border-white/10">
         <h3 className="text-red-400 font-medium mb-4 flex items-center gap-2">
             {t.settings_danger_zone}
@@ -110,13 +69,13 @@ export function SettingsView() {
                 onClick={() => setShowClearConfirm(false)}
                 className="bg-black/20 hover:bg-black/40 text-white/60 px-4 py-2 rounded-lg text-sm"
               >
-                Cancel
+                {t.action_cancel}
               </button>
               <button
                 onClick={clearData}
                 className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium"
               >
-                Confirm Delete
+                {t.action_confirm}
               </button>
             </div>
           </div>
