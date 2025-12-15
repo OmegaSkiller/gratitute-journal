@@ -38,22 +38,6 @@ export function TimelineView({ onStreakChange }: TimelineViewProps) {
 
   const todayDate = new Date().toISOString().split('T')[0];
 
-  useEffect(() => {
-    if (user) {
-      fetchEntries();
-    }
-  }, [user, fetchEntries]);
-
-  // Auto-scroll to bottom when entries load or input toggles
-  useEffect(() => {
-    if (!loading && bottomRef.current) {
-        // Wait a tick for layout reflow
-        setTimeout(() => {
-            bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
-    }
-  }, [loading, entries, isEditingToday, showInput]);
-
   const calculateStreak = useCallback((sortedEntries: Entry[]) => {
     if (sortedEntries.length === 0) {
         onStreakChange?.(0);
@@ -101,6 +85,22 @@ export function TimelineView({ onStreakChange }: TimelineViewProps) {
       setLoading(false);
     }
   }, [calculateStreak]);
+
+  useEffect(() => {
+    if (user) {
+      fetchEntries();
+    }
+  }, [user, fetchEntries]);
+
+  // Auto-scroll to bottom when entries load or input toggles
+  useEffect(() => {
+    if (!loading && bottomRef.current) {
+        // Wait a tick for layout reflow
+        setTimeout(() => {
+            bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+    }
+  }, [loading, entries, isEditingToday, showInput]);
 
   // Check if today exists in entries
   const todayEntry = entries.find(e => e.entry_date === todayDate);
