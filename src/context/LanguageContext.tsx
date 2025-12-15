@@ -41,7 +41,27 @@ export const translations = {
     settings_saved: "Saved!",
     action_edit: "Edit",
     action_cancel: "Cancel",
-    action_confirm: "Confirm Delete"
+    action_confirm: "Confirm Delete",
+
+    // Auth
+    auth_login: "Log In",
+    auth_signup: "Sign Up",
+    auth_email: "Email",
+    auth_password: "Password",
+    auth_submit: "Continue",
+    auth_loading: "Loading...",
+    auth_magic_link: "Send Magic Link",
+    auth_sign_out: "Sign Out",
+    auth_account: "Account",
+    auth_not_logged_in: "Not logged in. Entries are saved locally.",
+    auth_logged_in_as: "Logged in as",
+
+    // Data
+    data_title: "Data Management",
+    data_export: "Export CSV",
+    data_import: "Import CSV",
+    data_import_success: "Import successful!",
+    data_import_error: "Import failed. Check CSV format."
   },
   ru: {
     app_title_main: "ЖУРНАЛ",
@@ -79,7 +99,27 @@ export const translations = {
     settings_saved: "Сохранено!",
     action_edit: "Изменить",
     action_cancel: "Отмена",
-    action_confirm: "Удалить"
+    action_confirm: "Удалить",
+
+    // Auth
+    auth_login: "Войти",
+    auth_signup: "Регистрация",
+    auth_email: "Email",
+    auth_password: "Пароль",
+    auth_submit: "Продолжить",
+    auth_loading: "Загрузка...",
+    auth_magic_link: "Отправить ссылку",
+    auth_sign_out: "Выйти",
+    auth_account: "Аккаунт",
+    auth_not_logged_in: "Вы не вошли. Записи хранятся локально.",
+    auth_logged_in_as: "Вы вошли как",
+
+    // Data
+    data_title: "Управление данными",
+    data_export: "Экспорт CSV",
+    data_import: "Импорт CSV",
+    data_import_success: "Импорт успешен!",
+    data_import_error: "Ошибка импорта. Проверьте формат."
   }
 };
 

@@ -31,6 +31,8 @@ export function TimelineView({ onStreakChange }: TimelineViewProps) {
   const [isEditingToday, setIsEditingToday] = useState(false);
   const [showInput, setShowInput] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  
   const bottomRef = useRef<HTMLDivElement>(null);
   
   const { t, locale } = useLanguage();
@@ -38,59 +40,143 @@ export function TimelineView({ onStreakChange }: TimelineViewProps) {
   const todayDate = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
-    fetchEntries();
+    // Check user and then fetch/sync
+    checkUserAndSync();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        // If user changed (e.g. login), re-sync
+        if (currentUser) {
+            await syncAndFetch(currentUser);
+        } else {
+             fetchLocalOnly(); // Logged out? Just show local.
+        }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // Auto-scroll to bottom when entries load or input toggles
   useEffect(() => {
     if (!loading && bottomRef.current) {
-        // Wait a tick for layout reflow
         setTimeout(() => {
             bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
         }, 100);
     }
   }, [loading, entries, isEditingToday, showInput]);
 
-  async function fetchEntries() {
+  async function checkUserAndSync() {
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) {
+          syncAndFetch(currentUser);
+      } else {
+          fetchLocalOnly();
+      }
+  }
+
+  function getLocalEntries(): Map<string, Entry> {
+      const map = new Map<string, Entry>();
+      for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key?.startsWith('journal_entry_')) {
+              const date = key.replace('journal_entry_', '');
+              const content = localStorage.getItem(key) || '';
+              map.set(date, { id: key, entry_date: date, content });
+          }
+      }
+      return map;
+  }
+
+  async function fetchLocalOnly() {
+      setLoading(true);
+      const localMap = getLocalEntries();
+      const loadedEntries = Array.from(localMap.values());
+      loadedEntries.sort((a, b) => a.entry_date.localeCompare(b.entry_date));
+      setEntries(loadedEntries);
+      calculateStreak(loadedEntries);
+      setLoading(false);
+  }
+
+  async function syncAndFetch(currentUser: any) {
     setLoading(true);
-    const localEntries: Entry[] = [];
+    
+    // 1. Get Local
+    const localMap = getLocalEntries();
 
-    // 1. Local Storage
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key?.startsWith('journal_entry_')) {
-            const date = key.replace('journal_entry_', '');
-            const content = localStorage.getItem(key) || '';
-            localEntries.push({ id: key, entry_date: date, content });
-        }
+    // 2. Get Remote
+    const { data: remoteData, error } = await supabase
+        .from('entries')
+        .select('id, entry_date, content, updated_at')
+        .eq('user_id', currentUser.id);
+
+    if (error) {
+        console.error('Error fetching remote:', error);
+        // Fallback to local
+        fetchLocalOnly();
+        return;
     }
 
-    // 2. Supabase (Merge)
-    try {
-        const { data } = await supabase.from('entries').select('id, entry_date, content');
-        if (data) {
-            const map = new Map<string, Entry>();
-            data.forEach((r: any) => map.set(r.entry_date, r));
-            localEntries.forEach(l => {
-                if (!map.has(l.entry_date)) map.set(l.entry_date, l);
+    const remoteMap = new Map<string, any>();
+    remoteData?.forEach((r: any) => remoteMap.set(r.entry_date, r));
+
+    // 3. Sync Logic
+    const finalEntriesMap = new Map<string, Entry>();
+    const toUpload: any[] = [];
+    
+    // Process Local -> Remote
+    localMap.forEach((localEntry, date) => {
+        const remoteEntry = remoteMap.get(date);
+        
+        if (!remoteEntry) {
+            // Exists Locally, Missing Remotely -> Push to Remote
+            toUpload.push({
+                user_id: currentUser.id,
+                entry_date: date,
+                content: localEntry.content,
+                updated_at: new Date().toISOString()
             });
-            const merged = Array.from(map.values());
-            // Sort Oldest -> Newest (Ascending)
-            merged.sort((a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime());
-            setEntries(merged);
-            calculateStreak(merged);
+            finalEntriesMap.set(date, localEntry);
         } else {
-             localEntries.sort((a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime());
-             setEntries(localEntries);
-             calculateStreak(localEntries);
+            // Exists Both -> Use Remote (Cloud Truth) + Update Local if different
+            if (remoteEntry.content !== localEntry.content) {
+                // Determine truth? For now, assume Cloud is Truth. 
+                // Or compare updated_at if we tracked local updated_at (we don't effectively).
+                // Let's overwrite local with cloud.
+                localStorage.setItem(`journal_entry_${date}`, remoteEntry.content);
+                finalEntriesMap.set(date, { ...localEntry, content: remoteEntry.content });
+            } else {
+                finalEntriesMap.set(date, localEntry);
+            }
         }
-    } catch (e) {
-        localEntries.sort((a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime());
-        setEntries(localEntries);
-        calculateStreak(localEntries);
-    } finally {
-        setLoading(false);
+    });
+
+    // Process Remote -> Local (Missing in Local)
+    remoteMap.forEach((remoteEntry, date) => {
+        if (!localMap.has(date)) {
+            // Missing Locally -> Save to Local
+            localStorage.setItem(`journal_entry_${date}`, remoteEntry.content);
+            finalEntriesMap.set(date, { 
+                id: `journal_entry_${date}`, 
+                entry_date: date, 
+                content: remoteEntry.content 
+            });
+        }
+    });
+
+    // Execute Uploads
+    if (toUpload.length > 0) {
+        await supabase.from('entries').upsert(toUpload, { onConflict: 'user_id, entry_date' }); // composite key
     }
+
+    const merged = Array.from(finalEntriesMap.values());
+    merged.sort((a, b) => a.entry_date.localeCompare(b.entry_date));
+    
+    setEntries(merged);
+    calculateStreak(merged);
+    setLoading(false);
   }
 
   function calculateStreak(sortedEntries: Entry[]) {
@@ -99,19 +185,9 @@ export function TimelineView({ onStreakChange }: TimelineViewProps) {
           return;
       }
       
-      // Entries are Oldest -> Newest
-      // Reverse to check streak from Today backwards
       const reversed = [...sortedEntries].reverse();
       let streak = 0;
-      let currentCheck = new Date(); // Start Today
       
-      // Check if Today is present. 
-      // Streak "continues" if today OR yesterday has an entry.
-      // If today is missing, but yesterday exists, streak is valid (but user hasn't journaled today yet).
-      
-      const hasToday = reversed.some(e => e.entry_date === todayDate);
-      
-      // If simple loop:
       // Normalize dates to strings 'YYYY-MM-DD'
       const entryDates = new Set(reversed.map(e => e.entry_date));
       
@@ -140,15 +216,22 @@ export function TimelineView({ onStreakChange }: TimelineViewProps) {
     if (!todayContent.trim()) return;
     setIsSaving(true);
     
-    // Save Local
+    // 1. Save Local (Always)
     localStorage.setItem(`journal_entry_${todayDate}`, todayContent);
     
-    // Save Supabase
-    await supabase.from('entries').upsert({
-        entry_date: todayDate,
-        content: todayContent,
-        updated_at: new Date().toISOString()
-    }, { onConflict: 'entry_date' });
+    // 2. Save Supabase (If Logged In)
+    if (user) {
+        try {
+            await supabase.from('entries').upsert({
+                user_id: user.id,
+                entry_date: todayDate,
+                content: todayContent,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id, entry_date' });
+        } catch (err) {
+            console.error('Failed to sync today:', err);
+        }
+    }
 
     // Update State
     const updatedEntries = todayEntry 
