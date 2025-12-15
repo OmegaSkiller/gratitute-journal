@@ -1,24 +1,48 @@
 'use client';
 
+'use client';
+
 import { useState } from "react";
+import { useAuth } from "@/context/AuthProvider";
+import { LoginView } from "@/components/LoginView";
 import { SettingsView } from "@/components/SettingsView";
 import { TimelineView } from "@/components/TimelineView";
-import { Settings, X, Trophy } from "lucide-react";
+import { Settings, X, Trophy, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLanguage } from "@/context/LanguageContext";
+import { supabase } from "@/lib/supabase";
 
 export default function Home() {
+  const { session, loading } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
   const [streak, setStreak] = useState(0);
   const { t } = useLanguage();
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#183D12] flex items-center justify-center">
+        <Loader2 className="animate-spin text-white/50 w-10 h-10" />
+      </main>
+    );
+  }
+
+  if (!session) {
+    return (
+      <main className="min-h-screen bg-[#183D12] flex flex-col relative overflow-hidden transition-colors duration-500">
+        <LoginView />
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-[#183D12] flex flex-col relative overflow-hidden transition-colors duration-500">
         
-        {/* Background Gradients (Subtle) */}
         <div className="fixed top-0 left-0 w-full h-32 bg-gradient-to-b from-black/20 to-transparent pointer-events-none z-10" />
 
-        {/* Header */}
         <header className="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-6 py-6 md:px-12 backdrop-blur-md bg-[#183D12]/50">
             <h1 className="text-xl md:text-2xl font-serif font-bold tracking-tight text-white/90">
                 {t.app_title_main} <span className="font-light italic opacity-60">{t.app_title_sub}</span>
@@ -39,7 +63,6 @@ export default function Home() {
             </div>
         </header>
 
-        {/* Content */}
         <div className="flex-1 w-full pt-20">
             <AnimatePresence mode="wait">
                 {showSettings ? (
@@ -50,7 +73,7 @@ export default function Home() {
                         exit={{ opacity: 0, y: -20 }}
                         className="pt-10 px-4"
                     >
-                        <SettingsView />
+                        <SettingsView onLogout={handleLogout} />
                     </motion.div>
                 ) : (
                     <motion.div 

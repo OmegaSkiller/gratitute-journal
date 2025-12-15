@@ -41,7 +41,21 @@ export const translations = {
     settings_saved: "Saved!",
     action_edit: "Edit",
     action_cancel: "Cancel",
-    action_confirm: "Confirm Delete"
+    action_confirm: "Confirm Delete",
+    login_email_placeholder: "you@example.com",
+    login_password_placeholder: "••••••••",
+    login_signin_button: "Sign In",
+    login_signup_button: "Sign Up",
+    login_switch_to_signin: "Already have an account? Sign In",
+    login_switch_to_signup: "Don't have an account? Sign Up",
+    login_signup_subtitle: "Create an account to get started",
+    login_signin_subtitle: "Sign in to your account",
+    settings_export_csv: "Export to CSV",
+    settings_import_csv: "Import from CSV",
+    settings_import_confirm_title: "Confirm Import",
+    settings_import_confirm_desc: "This will overwrite existing entries for any matching dates in the CSV file.",
+    settings_logout: "Logout",
+    settings_data_management: "Data Management"
   },
   ru: {
     app_title_main: "ЖУРНАЛ",
@@ -93,30 +107,27 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
+const getInitialLocale = (): Locale => {
+  if (typeof window === 'undefined') {
+    return 'en';
+  }
+  const saved = localStorage.getItem('app_locale') as Locale;
+  if (saved && (saved === 'en' || saved === 'ru')) {
+    return saved;
+  }
+  const browserLang = navigator.language.toLowerCase();
+  if (browserLang.startsWith('ru')) {
+    return 'ru';
+  }
+  return 'en';
+};
+
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>('en'); 
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [locale, setLocaleState] = useState<Locale>(getInitialLocale);
 
   useEffect(() => {
-    // 1. Check local storage
-    const saved = localStorage.getItem('app_locale') as Locale;
-    if (saved && (saved === 'en' || saved === 'ru')) {
-      setLocaleState(saved);
-    } else {
-        // 2. Check navigator if no local storage
-        const browserLang = navigator.language.toLowerCase();
-        if (browserLang.startsWith('ru')) {
-            setLocaleState('ru');
-        }
-    }
-    setIsLoaded(true);
-  }, []);
-
-  useEffect(() => {
-    if (isLoaded) {
-      document.documentElement.lang = locale;
-    }
-  }, [locale, isLoaded]);
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   const setLocale = (l: Locale) => {
     setLocaleState(l);
@@ -124,10 +135,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   };
 
   const t = translations[locale];
-
-  if (!isLoaded) {
-      return <div className="min-h-screen bg-[#0f0c29]" />; // subtle loading state / flash preventer
-  }
 
   return (
     <LanguageContext.Provider value={{ locale, setLocale, t }}>

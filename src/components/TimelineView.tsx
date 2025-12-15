@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthProvider';
 import { useLanguage } from '@/context/LanguageContext';
-import { format, differenceInCalendarDays } from 'date-fns';
+import { format } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 import { Loader2, PenLine, Save, Plus } from 'lucide-react';
-import { cn } from '@/lib/utils'; // Assuming utils exists
 
 interface Entry {
   id: string;
@@ -25,6 +25,7 @@ interface TimelineViewProps {
 }
 
 export function TimelineView({ onStreakChange }: TimelineViewProps) {
+  const { user } = useAuth();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
   const [todayContent, setTodayContent] = useState('');
@@ -38,8 +39,10 @@ export function TimelineView({ onStreakChange }: TimelineViewProps) {
   const todayDate = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
-    fetchEntries();
-  }, []);
+    if (user) {
+      fetchEntries();
+    }
+  }, [user, fetchEntries]);
 
   // Auto-scroll to bottom when entries load or input toggles
   useEffect(() => {
@@ -51,116 +54,94 @@ export function TimelineView({ onStreakChange }: TimelineViewProps) {
     }
   }, [loading, entries, isEditingToday, showInput]);
 
-  async function fetchEntries() {
+  const calculateStreak = useCallback((sortedEntries: Entry[]) => {
+    if (sortedEntries.length === 0) {
+        onStreakChange?.(0);
+        return;
+    }
+
+    const reversed = [...sortedEntries].reverse();
+    let streak = 0;
+    const entryDates = new Set(reversed.map(e => e.entry_date));
+
+    const dateCursor = new Date();
+    let dateString = dateCursor.toISOString().split('T')[0];
+
+    if (!entryDates.has(dateString)) {
+        dateCursor.setDate(dateCursor.getDate() - 1);
+        dateString = dateCursor.toISOString().split('T')[0];
+    }
+
+    while (entryDates.has(dateString)) {
+        streak++;
+        dateCursor.setDate(dateCursor.getDate() - 1);
+        dateString = dateCursor.toISOString().split('T')[0];
+    }
+
+    onStreakChange?.(streak);
+  }, [onStreakChange]);
+
+  const fetchEntries = useCallback(async () => {
     setLoading(true);
-    const localEntries: Entry[] = [];
-
-    // 1. Local Storage
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key?.startsWith('journal_entry_')) {
-            const date = key.replace('journal_entry_', '');
-            const content = localStorage.getItem(key) || '';
-            localEntries.push({ id: key, entry_date: date, content });
-        }
-    }
-
-    // 2. Supabase (Merge)
     try {
-        const { data } = await supabase.from('entries').select('id, entry_date, content');
-        if (data) {
-            const map = new Map<string, Entry>();
-            data.forEach((r: any) => map.set(r.entry_date, r));
-            localEntries.forEach(l => {
-                if (!map.has(l.entry_date)) map.set(l.entry_date, l);
-            });
-            const merged = Array.from(map.values());
-            // Sort Oldest -> Newest (Ascending)
-            merged.sort((a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime());
-            setEntries(merged);
-            calculateStreak(merged);
-        } else {
-             localEntries.sort((a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime());
-             setEntries(localEntries);
-             calculateStreak(localEntries);
-        }
-    } catch (e) {
-        localEntries.sort((a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime());
-        setEntries(localEntries);
-        calculateStreak(localEntries);
-    } finally {
-        setLoading(false);
-    }
-  }
+      const { data, error } = await supabase
+        .from('entries')
+        .select('id, entry_date, content')
+        .order('entry_date', { ascending: true });
 
-  function calculateStreak(sortedEntries: Entry[]) {
-      if (sortedEntries.length === 0) {
-          onStreakChange?.(0);
-          return;
+      if (error) throw error;
+
+      if (data) {
+        setEntries(data);
+        calculateStreak(data);
       }
-      
-      // Entries are Oldest -> Newest
-      // Reverse to check streak from Today backwards
-      const reversed = [...sortedEntries].reverse();
-      let streak = 0;
-      let currentCheck = new Date(); // Start Today
-      
-      // Check if Today is present. 
-      // Streak "continues" if today OR yesterday has an entry.
-      // If today is missing, but yesterday exists, streak is valid (but user hasn't journaled today yet).
-      
-      const hasToday = reversed.some(e => e.entry_date === todayDate);
-      
-      // If simple loop:
-      // Normalize dates to strings 'YYYY-MM-DD'
-      const entryDates = new Set(reversed.map(e => e.entry_date));
-      
-      let dateCursor = new Date();
-      let dateString = dateCursor.toISOString().split('T')[0];
-      
-      // If today is missing, check yesterday
-      if (!entryDates.has(dateString)) {
-          dateCursor.setDate(dateCursor.getDate() - 1);
-          dateString = dateCursor.toISOString().split('T')[0];
-      }
-      
-      while (entryDates.has(dateString)) {
-          streak++;
-          dateCursor.setDate(dateCursor.getDate() - 1);
-          dateString = dateCursor.toISOString().split('T')[0];
-      }
-      
-      onStreakChange?.(streak);
-  }
+    } catch (error) {
+      console.error('Error fetching entries:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [calculateStreak]);
 
   // Check if today exists in entries
   const todayEntry = entries.find(e => e.entry_date === todayDate);
 
   const handleSaveToday = async () => {
-    if (!todayContent.trim()) return;
+    if (!todayContent.trim() || !user) return;
     setIsSaving(true);
-    
-    // Save Local
-    localStorage.setItem(`journal_entry_${todayDate}`, todayContent);
-    
-    // Save Supabase
-    await supabase.from('entries').upsert({
-        entry_date: todayDate,
-        content: todayContent,
-        updated_at: new Date().toISOString()
-    }, { onConflict: 'entry_date' });
 
-    // Update State
-    const updatedEntries = todayEntry 
-       ? entries.map(e => e.entry_date === todayDate ? { ...e, content: todayContent } : e)
-       : [...entries, { id: 'temp', entry_date: todayDate, content: todayContent }];
-       
-    setEntries(updatedEntries);
-    calculateStreak(updatedEntries);
-    
-    setIsEditingToday(false);
-    setShowInput(false);
-    setIsSaving(false);
+    try {
+      const { data, error } = await supabase
+        .from('entries')
+        .upsert(
+          {
+            entry_date: todayDate,
+            content: todayContent,
+            user_id: user.id,
+          },
+          { onConflict: 'user_id,entry_date' }
+        )
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        const updatedEntries = todayEntry
+          ? entries.map((e) => (e.entry_date === todayDate ? data : e))
+          : [...entries, data];
+
+        updatedEntries.sort((a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime());
+
+        setEntries(updatedEntries);
+        calculateStreak(updatedEntries);
+      }
+    } catch (error) {
+      console.error('Error saving entry:', error);
+    } finally {
+      setIsEditingToday(false);
+      setShowInput(false);
+      setIsSaving(false);
+    }
   };
 
   const startEditing = () => {

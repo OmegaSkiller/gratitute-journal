@@ -13,6 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 import { LanguageProvider } from "@/context/LanguageContext";
+import { AuthProvider } from "@/context/AuthProvider";
 
 export const viewport: Viewport = {
   themeColor: "#0f0c29",
@@ -48,7 +49,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <LanguageProvider>
-          {children}
+          <AuthProvider>
+            {children}
+          </AuthProvider>
         </LanguageProvider>
       </body>
     </html>
